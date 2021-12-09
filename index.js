@@ -18,7 +18,23 @@ const CACHE_TIMEOUT_SECONDS = 300;
 let cachedMessage = '';
 let cacheLastUpdated = 0;
 let requestOngoing = false;
+let chatsWaitingForMessage = new Set();
 
+function getCheckingMessage() {
+    return checkingMessages[Math.floor(Math.random() * (checkingMessages.length - 1)) + 1];
+}
+
+function getMessageFromStats(stats) {
+    let msg = '';
+    for (let pairStat of stats) {
+        msg += `<b>Network: ${pairStat.network.toUpperCase()}, Pair: ${pairStat.stakingToken0}/${pairStat.stakingToken1}</b>\n`
+        msg += `Pair TVL       : USD ${pairStat.pairTVL.toLocaleString()}\n`
+        msg += `Farm Staked TVL: USD ${pairStat.stakedValue.toLocaleString()}\n`
+        msg += `Farm APY       : ${(pairStat.poolApr / 100).toLocaleString()}%\n`
+        msg += `\n`
+    }
+    return msg;
+}
 
 // Matches "/pools[anything]"
 bot.onText(/\/pools/, (msg, match) => {
@@ -31,27 +47,22 @@ bot.onText(/\/pools/, (msg, match) => {
         bot.sendMessage(chatId, cachedMessage, {parse_mode : "HTML"});
     } else {
         console.log('cache miss');
+        chatsWaitingForMessage.add(chatId);
         if (requestOngoing) {
             console.log('received duplicate request')
             bot.sendMessage(chatId, "I'm still checking, will reply shortly..");
         } else {
             // send back the matched "whatever" to the chat
             requestOngoing = true;
-            const checkingMessage = checkingMessages[Math.floor(Math.random() * (checkingMessages.length - 1)) + 1];
-            bot.sendMessage(chatId, checkingMessage);
+            bot.sendMessage(chatId, getCheckingMessage());
             PairInfo.getStats()
                 .then((stats) => {
-                    let msg = '';
-                    for (let pairStat of stats) {
-                        msg += `<b>Network: ${pairStat.network.toUpperCase()}, Pair: ${pairStat.stakingToken0}/${pairStat.stakingToken1}</b>\n`
-                        msg += `Pair TVL       : USD ${pairStat.pairTVL.toLocaleString()}\n`
-                        msg += `Farm Staked TVL: USD ${pairStat.stakedValue.toLocaleString()}\n`
-                        msg += `Farm APY       : ${(pairStat.poolApr / 100).toLocaleString()}%\n`
-                        msg += `\n`
-                    }
-                    cachedMessage = msg;
+                    cachedMessage = getMessageFromStats(stats);
                     cacheLastUpdated = now;
-                    bot.sendMessage(chatId, cachedMessage, {parse_mode: "HTML"});
+                    for (let eachWaitingChat of chatsWaitingForMessage) {
+                        bot.sendMessage(eachWaitingChat, cachedMessage, {parse_mode: "HTML"});
+                    }
+                    chatsWaitingForMessage.clear();
                 })
                 .catch((e) => {
                     console.log(e);
