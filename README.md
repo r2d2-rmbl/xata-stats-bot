@@ -1,5 +1,5 @@
 # XATA Stats Telegram Bot
-Simple telegram bot for obtaining simple stats about XATA reward pools across multiple chains.
+This is a telegram bot for obtaining simple stats about XATA reward pools across multiple chains.
 * Use `/pools` to trigger requests
 * Caches responses for 5mins to avoid excessive spamming of coingecko API
 
