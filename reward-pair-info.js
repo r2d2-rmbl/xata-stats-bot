@@ -147,9 +147,15 @@ async function getTokenPrices(network, rewardPool, customHttpProvider) {
 }
 
 async function getRewardTokenValue(poolContract, rewardTokenAddress, tokenPrices, customHttpProvider) {
+    const rewardDataForToken = await poolContract.rewardData(rewardTokenAddress);
+    const secondsSinceEpoch = Math.round(Date.now() / 1000);
+    console.log(rewardDataForToken.periodFinish.toNumber());
+    if (secondsSinceEpoch >= rewardDataForToken.periodFinish.toNumber()) {
+        return BigNumber.from(0);
+    }
     const rewardToken = new ethers.Contract(rewardTokenAddress, ERC20ABI, customHttpProvider);
     const rewardTokenPrice = toJsRes(tokenPrices[rewardTokenAddress.toLowerCase()] ?? 1);
-    const qty = (await poolContract.rewardData(rewardTokenAddress)).rewardRate.mul(SECONDS_IN_YEAR);
+    const qty = rewardDataForToken.rewardRate.mul(SECONDS_IN_YEAR);
     const rewardDecimals = await rewardToken.decimals();
     return qty.mul(rewardTokenPrice).div(JS_DECIMAL_RES).div(dec(rewardDecimals));
 }
